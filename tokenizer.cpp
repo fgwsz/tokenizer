@@ -1,113 +1,151 @@
 #include<cstddef>       // ::std::size_t
-#include<algorithm>     // ::std::greater
-#include<string>        // ::std::string
+#include<algorithm>     // ::std::sort
+#include<string>        // ::std::string ::std::to_string
+#include<array>         // ::std::array
 #include<unordered_map> // ::std::unoredered_map
-#include<map>           // ::std::multimap
+#include<vector>        // ::std::vector:
 #include<iostream>      // ::std::cout
 #include<fstream>       // ::std::ifstream
 #include<sstream>       // ::std::stringstream
 #include<stdexcept>     // ::std::runtime_error
 
-// 全局变量
+// 单词频率数据库
 static ::std::unordered_map<::std::string,::std::size_t> data_base={};
-static ::std::multimap<
-    ::std::size_t
-    ,::std::string
-    ,::std::greater<::std::size_t>
-> output={};
-// 检测函数
-bool is_letter(char const ch){
-    auto uc=static_cast<unsigned char>(ch);
-    return (uc>='A'&&uc<='Z')||(uc>='a'&&uc<='z');
-}
-bool is_number(char const ch){
-    auto uc=static_cast<unsigned char>(ch);
-    return uc>='0'&&uc<='9';
-}
-bool is_valid_char(char const ch){
-    auto uc=static_cast<unsigned char>(ch);
-    return ::is_letter(uc)||::is_number(uc)||uc=='\''||uc=='-';
-}
-bool is_valid_word(::std::string const& word){
-    bool has_letter_or_number=false;
-    for(char ch:word){
-        if(::is_letter(ch)||::is_number(ch)){
-            has_letter_or_number=true;
+
+inline void handle(::std::string const& text){
+    //静态查找表
+    static constexpr ::std::array<unsigned char,256> table=[](void){
+        ::std::array<unsigned char,256> table={};
+        for(::std::size_t index=0;index<256;++index){
+            if(index>='A'&&index<='Z'){
+                table[index]=1;
+            }else if((index>='a'&&index<='z')||(index>='0'&&index<='9')){
+                table[index]=2;
+            }else if(index=='\''||index=='-'){
+                table[index]=3;
+            }
         }
-    }
-    return has_letter_or_number;
-}
-// 标准化单词(转换为小写)
-void normalize_word(::std::string& word){
-    for(char& ch:word){
-        if(ch>='A'&&ch<='Z'){
-            ch=ch-'A'+'a';
-        }
-    }
-}
-// 文本处理导入数据库
-void handle(::std::string const& text){
+        return table;
+    }();
     ::std::string word={};
-#define INSERT_WORD do{\
-    if(::is_valid_word(word)){ \
-        ::normalize_word(word); \
-        if(::data_base.find(word)==::data_base.end()){ \
-            ::data_base[word]=1; \
-        }else{ \
-            ::data_base[word]++; \
-        } \
-    } \
-    word.clear(); \
-}while(0) \
-//
-    for(char ch:text){
-        if(::is_valid_char(ch)){
-            word.push_back(ch);
-        }else{
-            INSERT_WORD;
+    word.reserve(64);//预分配最大英文单词长度
+    bool word_has_letter_or_number=false;
+    //一次性遍历并处理完所有单词操作导入数据库
+    for(unsigned char ch:text){
+        switch(table[ch]){
+            case 1:{//大写字母
+                word.push_back(ch+'a'-'A');
+                word_has_letter_or_number=true;
+                break;
+            }
+            case 2:{//小写字母或数字
+                word.push_back(ch);
+                word_has_letter_or_number=true;
+                break;
+            }
+            case 3:{//缩写符号或连字符号
+                word.push_back(ch);
+                break;
+            }
+            default:{//遇到分隔符
+                if(word_has_letter_or_number){
+                    auto[iter,inserted]=::data_base.try_emplace(word,1);
+                    if(!inserted){
+                        ++iter->second;
+                    }
+                }
+                word.clear();
+                word_has_letter_or_number=false;
+            }
         }
     }
     // 处理文本结束时的最后一个单词
-    INSERT_WORD;
-#undef INSERT_WORD
+    if(word_has_letter_or_number){
+        auto[iter,inserted]=::data_base.try_emplace(word,1);
+        if(!inserted){
+            ++iter->second;
+        }
+    }
 }
-// 生成按频率排序的输出
-void generate_output(void){
-    ::output.clear();
-    for(const auto& [word, freq]: ::data_base){
-        // multimap会自动按key排序,使用greater使频率高的在前
-        ::output.insert({freq,word});
+// 得到打印时占用的字符宽度
+inline ::std::size_t get_digit_width(::std::size_t value){
+    return ::std::to_string(value).size();
+}
+// 打印时的对齐方式
+enum class Alignment{
+    LEFT,
+    RIGHT
+};
+// 数值型数据打印时拓展到指定的宽度
+template<typename Number>
+inline ::std::string expand_digit_width(
+    Number value
+    ,::std::size_t width
+    ,::Alignment alignment
+){
+    ::std::string str=::std::to_string(value);
+    ::std::string blank=::std::string(width-str.size(),' ');
+    if(alignment==::Alignment::RIGHT){
+        return blank+str;
+    }else{
+        return str+blank;
     }
 }
 // 显示统计结果
-void display_statistics(void){
+inline void display(void){
+    struct Item{
+        ::std::size_t freq;
+        ::std::string_view word;
+    };
+    static ::std::vector<Item> output={};
     if(::data_base.empty()){
-        std::cout<<"Database is empty!\n";
+        ::std::cout<<"Database is empty!\n";
         return;
     }
-    std::cout<<"\n=== WORD FREQUENCY ANALYSIS RESULTS ===\n";
-    std::cout<<"Total unique words: "<<::data_base.size()<<'\n';
+    ::std::cout<<
+        "\n=== WORD FREQUENCY ANALYSIS RESULTS ===\n"
+        "Total unique words: "
+        <<::data_base.size()<<'\n';
     // 计算总单词数
-    size_t total_words=0;
+    ::std::size_t total_words=0;
     for(const auto& pair: ::data_base){
         total_words+=pair.second;
     }
-    std::cout<<"Total word occurrences: "<<total_words<<'\n';
-    // 使用multimap输出(已按频率排序)
-    std::cout<<"\nWORD FREQUENCY RANKING(descending order):\n";
-    std::cout<<"RANK | WORD | FREQUENCY | PERCENTAGE\n";
-    std::cout<<"--------------------------------\n";
-    size_t rank=1;
-    for(const auto& [freq,word]: ::output){
-        double percentage=(static_cast<double>(freq)/total_words)*100.0;
-        std::cout<<rank++<<" | "
-                 <<word<<" | "
-                 <<freq<<" | "
-                 <<percentage<<"%\n";
+    ::std::cout<<"Total word occurrences: "<<total_words<<'\n';
+    // 按频率排序
+    output.clear();
+    for(const auto& [word,freq]: ::data_base){
+        output.emplace_back(Item{freq,word});
+    }
+    ::std::sort(output.begin(),output.end(),
+        [](Item const& lhs,Item const& rhs){
+            if(lhs.freq!=rhs.freq){
+                return lhs.freq>rhs.freq;
+            }else{
+                //Item降序排列时,单词按字母a-z升序排列
+                return lhs.word<=rhs.word;
+            }
+        }
+    );
+    ::std::cout<<
+        "\nWORD FREQUENCY RANKING(descending order):\n"
+        "RANK | FREQUENCY | PERCENTAGE | WORD\n"
+        "--------------------------------\n";
+    ::std::size_t rank=1;
+    ::std::size_t max_digit_width=get_digit_width(total_words);
+    double percentage=0.0;
+    for(const auto& [freq,word]:output){
+        percentage=(static_cast<double>(freq)/total_words)*100.0;
+        ::std::cout
+            <<expand_digit_width(rank,max_digit_width,::Alignment::LEFT)<<"|"
+            <<expand_digit_width(freq,max_digit_width,::Alignment::RIGHT)<<"|"
+            <<expand_digit_width(percentage,10,::Alignment::RIGHT)<<" %| "
+            <<word<<"\n";
+        ++rank;
     }
 }
 // 读取文本文件
-::std::string read_file(::std::string const& file_path){
+inline ::std::string read_file(::std::string const& file_path){
     ::std::ifstream file(file_path);
     if(!file.is_open()){
         throw ::std::runtime_error("Can't open file:"+file_path);
@@ -118,12 +156,15 @@ void display_statistics(void){
     return buffer.str();
 }
 int main(int argc,char* argv[]){
-    if(argc!=2){
-        ::std::cout<<"use: <file path>\n";
+    if(argc<2){
+        ::std::cout<<"use: <file path>...\n";
         return -1;
     }
-    ::handle(::read_file(argv[1]));
-    ::generate_output();
-    ::display_statistics();
+    ::std::string text={};
+    for(int index=1;index<argc;++index){
+        text+=::read_file(argv[index])+'.';
+    }
+    ::handle(text);
+    ::display();
     return 0;
 }
