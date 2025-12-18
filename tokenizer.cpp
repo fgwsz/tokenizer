@@ -4,8 +4,8 @@
 #include<array>         // ::std::array
 #include<unordered_map> // ::std::unoredered_map
 #include<vector>        // ::std::vector:
-#include<iostream>      // ::std::cout
-#include<fstream>       // ::std::ifstream
+#include<iostream>      // ::std::cout ::std::cin  ::std::ios_base
+#include<fstream>       // ::std::ifstream ::std::ofstream
 #include<sstream>       // ::std::stringstream
 #include<stdexcept>     // ::std::runtime_error
 
@@ -67,10 +67,6 @@ inline void handle(::std::string const& text){
         }
     }
 }
-// 得到打印时占用的字符宽度
-inline ::std::size_t get_digit_width(::std::size_t value){
-    return ::std::to_string(value).size();
-}
 // 打印时的对齐方式
 enum class Alignment{
     LEFT,
@@ -91,27 +87,29 @@ inline ::std::string expand_digit_width(
         return str+blank;
     }
 }
-// 显示统计结果
-inline void display(void){
+// 返回统计结果
+inline ::std::string display(void){
     struct Item{
         ::std::size_t freq;
         ::std::string_view word;
     };
     static ::std::vector<Item> output={};
+    ::std::string ret={};
     if(::data_base.empty()){
-        ::std::cout<<"Database is empty!\n";
-        return;
+        ret.append("Database is empty!\n");
+        return ret;
     }
-    ::std::cout<<
+    ret.append(
         "\n=== WORD FREQUENCY ANALYSIS RESULTS ===\n"
-        "Total unique words: "
-        <<::data_base.size()<<'\n';
+        "Total unique words: "+::std::to_string(::data_base.size())+'\n'
+    );
     // 计算总单词数
     ::std::size_t total_words=0;
     for(const auto& pair: ::data_base){
         total_words+=pair.second;
     }
-    ::std::cout<<"Total word occurrences: "<<total_words<<'\n';
+    ::std::string total_words_string=::std::to_string(total_words);
+    ret.append("Total word occurrences: "+total_words_string+'\n');
     // 按频率排序
     output.clear();
     for(const auto& [word,freq]: ::data_base){
@@ -127,22 +125,25 @@ inline void display(void){
             }
         }
     );
-    ::std::cout<<
+    ret.append(
         "\nWORD FREQUENCY RANKING(descending order):\n"
         "RANK | FREQUENCY | PERCENTAGE | WORD\n"
-        "--------------------------------\n";
+        "--------------------------------\n"
+    );
     ::std::size_t rank=1;
-    ::std::size_t max_digit_width=get_digit_width(total_words);
+    ::std::size_t max_digit_width=total_words_string.size();
     double percentage=0.0;
     for(const auto& [freq,word]:output){
         percentage=(static_cast<double>(freq)/total_words)*100.0;
-        ::std::cout
-            <<expand_digit_width(rank,max_digit_width,::Alignment::LEFT)<<"|"
-            <<expand_digit_width(freq,max_digit_width,::Alignment::RIGHT)<<"|"
-            <<expand_digit_width(percentage,10,::Alignment::RIGHT)<<" %| "
-            <<word<<"\n";
+        ret.append( 
+            ::expand_digit_width(rank,max_digit_width,::Alignment::LEFT)+"|"
+            +::expand_digit_width(freq,max_digit_width,::Alignment::RIGHT)+"|"
+            +::expand_digit_width(percentage,10,::Alignment::RIGHT)+" %| "
+        );
+        ret.append(word).append("\n");
         ++rank;
     }
+    return ret;
 }
 // 读取文本文件
 inline ::std::string read_file(::std::string const& file_path){
@@ -156,15 +157,60 @@ inline ::std::string read_file(::std::string const& file_path){
     return buffer.str();
 }
 int main(int argc,char* argv[]){
+    static bool std_cout_init=[](void){
+        //关闭与C语言的输入输出流同步
+        ::std::ios_base::sync_with_stdio(false);
+        //解除cin和cout的绑定
+        ::std::cin.tie(nullptr);
+        ::std::cout.tie(nullptr);
+        return true;
+    }();
+    auto help=[](void){
+        ::std::cout<<
+            "use: <input file path>\n"
+            "use: <input file path>...\n"
+            "use: <input file path> -o <output file path>\n"
+            "use: <input file path>... -o <output file path>\n";
+    };
     if(argc<2){
-        ::std::cout<<"use: <file path>...\n";
+        help();
         return -1;
     }
     ::std::string text={};
+    ::std::string argument={};
+    ::std::string output={};
+    enum class Mode{
+        COUT,
+        FOUT
+    };
+    Mode mode=Mode::COUT;
     for(int index=1;index<argc;++index){
-        text+=::read_file(argv[index])+'.';
+        argument=argv[index];
+        if(argument=="-o"){
+            mode=Mode::FOUT;
+            //检查输出路径的数量是否为一个,多于一个显示错误
+            if(index>1&&(index+2==argc)){
+                output=argv[index+1];
+                break;
+            }else{
+                help();
+                return -1;
+            }
+        }else{
+            text+=::read_file(argument)+'.';
+        }
     }
     ::handle(text);
-    ::display();
+    if(mode==Mode::COUT){
+        ::std::cout<<::display();
+    }else{
+        ::std::ofstream ofs(output);
+        if(!ofs.is_open()){
+            throw ::std::runtime_error("Can't open file:"+output);
+            return -1;
+        }
+        ofs<<::display();
+        ofs.close();
+    }
     return 0;
 }
