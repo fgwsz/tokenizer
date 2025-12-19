@@ -4,9 +4,8 @@
 #include<array>         // ::std::array
 #include<unordered_map> // ::std::unoredered_map
 #include<vector>        // ::std::vector:
-#include<iostream>      // ::std::cout ::std::cin  ::std::ios_base
+#include<iostream>      // ::std::cout ::std::cin  ::std::ios_base ::std::ios
 #include<fstream>       // ::std::ifstream ::std::ofstream
-#include<sstream>       // ::std::stringstream
 #include<stdexcept>     // ::std::runtime_error
 
 // 单词频率数据库
@@ -21,7 +20,7 @@ inline void handle(::std::string const& text){
                 table[index]=1;
             }else if((index>='a'&&index<='z')||(index>='0'&&index<='9')){
                 table[index]=2;
-            }else if(index=='\''||index=='-'){
+            }else if(index=='\''||index=='-'||index=='_'){
                 table[index]=3;
             }
         }
@@ -93,7 +92,6 @@ inline ::std::string display(void){
         ::std::size_t freq;
         ::std::string_view word;
     };
-    static ::std::vector<Item> output={};
     ::std::string ret={};
     if(::data_base.empty()){
         ret.append("Database is empty!\n");
@@ -111,7 +109,8 @@ inline ::std::string display(void){
     ::std::string total_words_string=::std::to_string(total_words);
     ret.append("Total word occurrences: "+total_words_string+'\n');
     // 按频率排序
-    output.clear();
+    ::std::vector<Item> output={};
+    output.reserve(::data_base.size());//预分配内存
     for(const auto& [word,freq]: ::data_base){
         output.emplace_back(Item{freq,word});
     }
@@ -147,14 +146,16 @@ inline ::std::string display(void){
 }
 // 读取文本文件
 inline ::std::string read_file(::std::string const& file_path){
-    ::std::ifstream file(file_path);
+    ::std::ifstream file(file_path,::std::ios::ate);// 直接定位到文件末尾
     if(!file.is_open()){
         throw ::std::runtime_error("Can't open file:"+file_path);
     }
-    ::std::stringstream buffer;
-    buffer<<file.rdbuf();
-    file.close();
-    return buffer.str();
+    ::std::size_t file_size=file.tellg();
+    file.seekg(0);
+    ::std::string content;
+    content.resize(file_size);
+    file.read(&content[0],file_size);
+    return content;
 }
 int main(int argc,char* argv[]){
     static bool std_cout_init=[](void){
