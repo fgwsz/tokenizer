@@ -12,16 +12,23 @@
 static ::std::unordered_map<::std::string,::std::size_t> data_base={};
 
 inline void handle(::std::string const& text){
+    // 使用枚举代替魔数
+    enum CharType:unsigned char{
+        UPPER=1,
+        LOWER_OR_DIGIT=2,
+        HYPHEN=3,
+        DELIMITER=0
+    };
     //静态查找表
     static constexpr ::std::array<unsigned char,256> table=[](void){
-        ::std::array<unsigned char,256> table={};
+        ::std::array<unsigned char,256> table={CharType::DELIMITER};
         for(::std::size_t index=0;index<256;++index){
             if(index>='A'&&index<='Z'){
-                table[index]=1;
+                table[index]=CharType::UPPER;
             }else if((index>='a'&&index<='z')||(index>='0'&&index<='9')){
-                table[index]=2;
+                table[index]=CharType::LOWER_OR_DIGIT;
             }else if(index=='\''||index=='-'||index=='_'){
-                table[index]=3;
+                table[index]=CharType::HYPHEN;
             }
         }
         return table;
@@ -32,17 +39,17 @@ inline void handle(::std::string const& text){
     //一次性遍历并处理完所有单词操作导入数据库
     for(unsigned char ch:text){
         switch(table[ch]){
-            case 1:{//大写字母
+            case CharType::UPPER:{//大写字母
                 word.push_back(ch+'a'-'A');
                 word_has_letter_or_number=true;
                 break;
             }
-            case 2:{//小写字母或数字
+            case CharType::LOWER_OR_DIGIT:{//小写字母或数字
                 word.push_back(ch);
                 word_has_letter_or_number=true;
                 break;
             }
-            case 3:{//缩写符号或连字符号
+            case CharType::HYPHEN:{//缩写符号或连字符号
                 word.push_back(ch);
                 break;
             }
