@@ -1,1 +1,1 @@
-g++ ./tokenizer.cpp -o tokenizer
+g++ ./tokenizer.cpp -O2 -o tokenizer
