@@ -212,12 +212,16 @@ int main(int argc,char* argv[]){
     if(mode==Mode::COUT){
         ::std::cout<<::display();
     }else{
-        ::std::ofstream ofs(output);
+        ::std::ofstream ofs(output,::std::ios::binary);
         if(!ofs.is_open()){
             throw ::std::runtime_error("Can't open file:"+output);
-            return -1;
         }
-        ofs<<::display();
+        ::std::string content=::display();
+        ofs.write(content.data(),static_cast<::std::streamsize>(content.size()));
+        ofs.flush();
+        if(!ofs.good()){
+            throw ::std::runtime_error("Write failed to file:"+output);
+        }
         ofs.close();
     }
     return 0;
