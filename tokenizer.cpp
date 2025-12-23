@@ -1,4 +1,5 @@
 #include<cstddef>       // ::std::size_t
+#include<cstdio>        //::std::fwrite ::std::fflush
 #include<algorithm>     // ::std::sort
 #include<string>        // ::std::string ::std::to_string
 #include<array>         // ::std::array
@@ -175,10 +176,10 @@ int main(int argc,char* argv[]){
     }();
     auto help=[](void){
         ::std::cout<<
-            "use: <input file path>\n"
-            "use: <input file path>...\n"
-            "use: <input file path> -o <output file path>\n"
-            "use: <input file path>... -o <output file path>\n";
+            "Usage: <input file path>\n"
+            "Usage: <input file path>...\n"
+            "Usage: <input file path> -o <output file path>\n"
+            "Usage: <input file path>... -o <output file path>\n";
     };
     if(argc<2){
         help();
@@ -209,19 +210,17 @@ int main(int argc,char* argv[]){
         }
     }
     ::handle(text);
+    ::std::string content=::display();
     if(mode==Mode::COUT){
-        ::std::cout<<::display();
+        ::std::fwrite(content.c_str(),1,content.size(),stdout);
+        ::std::fflush(stdout);
     }else{
-        ::std::ofstream ofs(output,::std::ios::binary);
+        ::std::ofstream ofs(output);
         if(!ofs.is_open()){
             throw ::std::runtime_error("Can't open file:"+output);
         }
-        ::std::string content=::display();
-        ofs.write(content.data(),static_cast<::std::streamsize>(content.size()));
+        ofs.write(content.c_str(),content.size());
         ofs.flush();
-        if(!ofs.good()){
-            throw ::std::runtime_error("Write failed to file:"+output);
-        }
         ofs.close();
     }
     return 0;
