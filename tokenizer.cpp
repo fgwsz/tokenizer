@@ -5,7 +5,8 @@
 #include<array>         // ::std::array
 #include<vector>        // ::std::vector
 #include<unordered_map> // ::std::unoredered_map
-#include<iostream>      // ::std::cout ::std::cin  ::std::ios_base ::std::ios
+#include<ios>           // ::std::ios ::std::ios_base ::std::streamsize
+#include<iostream>      // ::std::cout ::std::cin
 #include<fstream>       // ::std::ifstream ::std::ofstream
 #include<stdexcept>     // ::std::runtime_error
 
@@ -189,7 +190,7 @@ inline void write_file(
         throw ::std::runtime_error("File write error:"+file_path);
     }
 }
-static bool std_cout_init=[](void){
+static bool const std_cout_init=[](void){
     //关闭与C语言的输入输出流同步
     ::std::ios_base::sync_with_stdio(false);
     //解除cin和cout的绑定
